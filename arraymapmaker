@@ -1,0 +1,88 @@
+arraymapmaker[order_, initialjitter1_, initialjitter2_, 
+  jitterfunction1_, jitterfunction2_, read_, filename_] := 
+ Module[{size, base, mid, map, new, dimlist, squarecorners, 
+   diamondcorners, dim, file, jitter1, jitter2, initialjitter, 
+   cornerx, cornery},
+  
+  size = 2^order + 1;
+  initialjitter := RandomReal[{initialjitter1, initialjitter2}];
+  map = SparseArray[{{1, 1} -> initialjitter, {size, size - 1} -> 
+      0, {1, size - 1} -> 0, {size, 1} -> initialjitter}];
+  mid[n_] := (n + 1)/2;
+  dimlist = Reverse[Table[2^i + 1, {i, 1, order}]];
+  file = filename;
+  
+  Do[
+   dim = dimlist[[i]];
+   squarecorners = 
+    Flatten[Table[{y (dim - 1) + 1, x (dim - 1) + 1}, {y, 
+       0, (size - 1)/(dim - 1) - 1, 1}, {x, 
+       0, (size - 1)/(dim - 1) - 1, 1}], 1];
+   diamondcorners = 
+    DeleteDuplicates[
+     Join[Flatten[
+       Table[{y (dim - 1) + 1, Mod[x (dim - 1) + 1, size - 1, 1]}, {y,
+          0, (size - 1)/(dim - 1), 1}, {x, 0, (size - 1)/(dim - 1), 
+         1}], 1], 
+      Flatten[Table[{y (dim - 1) + 1 - 1 + mid[dim], 
+         x (dim - 1) + 1 - 1 + mid[dim]}, {y, 
+         0, (size - 1)/(dim - 1) - 1, 1}, {x, 
+         0, (size - 1)/(dim - 1) - 1, 1}], 1]]];
+   jitter1 = jitterfunction1;
+   jitter2 = jitterfunction2;
+   
+   Do[
+    cornery = squarecorners[[i, 1]];
+    cornerx = squarecorners[[i, 2]];
+    new = (map[[cornery, cornerx]] + 
+         map[[cornery, Mod[cornerx - 1 + dim, size - 1, 1]]] + 
+         map[[cornery - 1 + dim, cornerx]] + 
+         map[[cornery - 1 + dim, 
+          Mod[cornerx - 1 + dim, size - 1, 1]]])/4. + 
+      RandomReal[{jitter1, jitter2}];
+    (map[[cornery - 1 + mid[dim], cornerx - 1 + mid[dim]]] = #) &@
+     new;
+    
+    , {i, 1, Length[squarecorners]}];
+   If[read == 1, Export[file, map, "HarwellBoeing"]];
+   Print["Completed Squares for dimension  " <> ToString[dimlist[[i]]]]
+    
+    Do[
+     cornery = diamondcorners[[i, 1]];
+     cornerx = diamondcorners[[i, 2]];
+     
+     If[(cornery - 1 + mid[dim]) > size,(*southpole*)
+      new =
+       (map[[cornery, cornerx]]
+          + map[[cornery, Mod[cornerx - 1 + dim, size - 1, 1]]]
+         (*+map[[cornery+1-mid[dim],Mod[cornerx-1+mid[dim],size-1,
+         1]]]*))
+        /2.(*+RandomReal[{jitter1,jitter2}]*),
+      
+      If[cornery + 1 - mid[dim] <= 0,(*northpole*)
+       new =
+        (map[[cornery, cornerx]]
+           + map[[cornery, Mod[cornerx - 1 + dim, size - 1, 1]]]
+          (*+map[[cornery-1+mid[dim],Mod[cornerx-1+mid[dim],size-1,
+          1]]]*))
+         /2.(*+RandomReal[{jitter1,jitter2}]*),
+       
+       new =
+        (map[[cornery, cornerx]]
+            + map[[cornery, Mod[cornerx - 1 + dim, size - 1, 1]]]
+            + 
+            map[[cornery - 1 + mid[dim], 
+             Mod[cornerx - 1 + mid[dim], size - 1, 1]]]
+            + 
+            map[[cornery + 1 - mid[dim], 
+             Mod[cornerx - 1 + mid[dim], size - 1, 1]]])
+          /4. + RandomReal[{jitter1, jitter2}]]];
+     (map[[cornery, Mod[cornerx - 1 + mid[dim], size - 1, 1]]] = #) &@
+      new;
+     ,
+     {i, 1, Length[diamondcorners]}];
+   If[read == 1, Export[file, map, "HarwellBoeing"]];
+   Print["Completed dimension " <> ToString[dimlist[[i]]] <> " of " <>
+      ToString[dimlist] <> " at " <> ToString[DateString[]]],
+   {i, 1, Length[dimlist]}];
+  ]
